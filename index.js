@@ -8,8 +8,14 @@ const fs = require('fs')
 
 let app = require('./app');
 let debug = require('debug')('corp-api:server');
-const http = require('http')
+const http = require('http');
+const https = require('https');
 
+const credentials = {
+    key: fs.readFileSync(config.keys.privkey, 'utf8'),
+    cert: fs.readFileSync(config.keys.cert, 'utf8'),
+    ca: fs.readFileSync(config.keys.chain, 'utf8')
+}
 /**
  * Get port from environment and store in Express.
  */
@@ -22,8 +28,8 @@ app.set('port', port);
  */
 
 
-const server = http.createServer(app)
-
+// const server = http.createServer(app)
+const server = https.createServer(credentials, app)
 /**
  * Listen on provided port, on all network interfaces.
  */

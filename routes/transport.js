@@ -81,13 +81,14 @@ router.get('/trainInfo', async function (req, res, next) {
     let trainId = req.query.train_id;
     try {
         let result = await db.q(`
-            select axle, norm, axleLength, axleType, truck
+            select axle, norm, norm2, norm3, axleLength, axleType, truck
             from norm
             where train_id = ?
             order by truck, axle
         `, [trainId]);
 
 
+        let id = await db.q(`select MAX(id) as max_id from acts`, []);
 
 
         let axleType = [],  axleLength = [], norm = [], truck = [];
@@ -106,7 +107,8 @@ router.get('/trainInfo', async function (req, res, next) {
         };
         res.json({
             status: 'ok',
-            data: data
+            data: data,
+            next_id: id+1
         })
     } catch (err) {
         console.warn(err);
@@ -119,7 +121,6 @@ router.get('/trainInfo', async function (req, res, next) {
 });
 
 router.post('/saveTrain', async function (req, res, next) {
-console.log(req.body);
     try {
         let result = await db.q(`insert into train (name) values (?)`, [req.body.name]);
         let trainId = result[0].insertId;
@@ -128,11 +129,20 @@ console.log(req.body);
         for(let i in req.body.data) {
             let truck = i.match(/\d+/)[0];
             for(let j in req.body.data[i]) {
-                norm.push([trainId, n, req.body.data[i][j].norm, req.body.data[i][j].axleLength, req.body.data[i][j].axleType, truck]);
+                norm.push([
+                    trainId,
+                    n,
+                    req.body.data[i][j].norm,
+                    req.body.data[i][j].norm2,
+                    req.body.data[i][j].norm3,
+                    req.body.data[i][j].axleLength,
+                    req.body.data[i][j].axleType,
+                    truck]);
                 n++;
             }
         }
-        await db.q(`insert into norm (train_id, axle, norm, axleLength, axleType, truck) values ?`, [norm]);
+        await db.q(`insert into norm (train_id, axle, norm, norm2, norm3, axleLength, axleType, truck) values ?`, [norm]);
+        await db.q(`insert into acts (act_json) values (?)`, [JSON.stringify(req.body)]);
         return res.json({
             status: 'ok',
             data: {}
