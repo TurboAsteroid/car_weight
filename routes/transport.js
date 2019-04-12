@@ -44,7 +44,11 @@ router.get('/list', async function (req, res, next) {
 });
 router.get('/trainList', async function (req, res, next) {
     try {
-        let sqlResult = await db.q(`select * from train order by id`, []);
+        let sqlResult = await db.q(`
+            SELECT a.*, GROUP_CONCAT(CONCAT ( b.truck, b.axleType ) ORDER BY b.truck, b.axle ASC SEPARATOR '') as img
+            FROM train a
+            LEFT JOIN axle_info b ON a.id=b.train_id
+            GROUP BY a.id`, []);
         return res.json({
             status: 'ok',
             data: sqlResult[0]
@@ -159,6 +163,7 @@ router.post('/saveTrain', async function (req, res, next) {
             data: {}
         })
     } catch (err) {
+        console.warn(err);
         return res.json({
             status: 'error',
             data: {},
