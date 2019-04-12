@@ -4,17 +4,27 @@ const config = require('../config');
 const db = require('../db');
 
 router.post('/print', async function (req, res, next) {
-    console.warn(req.body);
-    let array = [
-        [1, req.body.transport.brand, req.body.transport.model],
-        [0, req.body.transport2.brand, req.body.transport2.model]
-    ];
-    await db.q(`insert into transport (type, brand, model) values ?`, [array]);
-    return res.json({
-        status: 'ok',
-        data: [],
-        message: 'Ошибка при получении списка транспортных средств'
-    })
+    try {
+        let array = [
+            [1, req.body.transport.brand, req.body.transport.model],
+            [0, req.body.transport2.brand, req.body.transport2.model]
+        ];
+        await db.q(`insert into transport (type, brand, model) values ?`, [array]);
+        await db.q(`insert into acts (id, act_json) values (?, ?) ON DUPLICATE KEY UPDATE act_json=?`, [req.body.number, JSON.stringify(req.body), JSON.stringify(req.body)]);
+        return res.json({
+            status: 'ok',
+            data: [],
+            message: 'Ошибка при получении списка транспортных средств'
+        })
+    } catch (err) {
+        console.warn(err);
+        return res.json({
+            status: 'error',
+            data: [],
+            message: 'Ошибка при сохранении акта'
+        })
+    }
+
 });
 router.get('/list', async function (req, res, next) {
     try {
@@ -82,20 +92,20 @@ router.get('/trainInfo', async function (req, res, next) {
     try {
         let result = await db.q(`
             select axle, norm, norm2, norm3, axleLength, axleType, truck
-            from norm
+            from axle_info
             where train_id = ?
             order by truck, axle
         `, [trainId]);
 
-
         let id = await db.q(`select MAX(id) as max_id from acts`, []);
 
-
-        let axleType = [],  axleLength = [], norm = [], truck = [];
+        let axleType = [],  axleLength = [], norm = [], norm2 = [], norm3 = [], truck = [];
         for (let i in result[0]) {
             axleType.push(result[0][i].axleType);
             axleLength.push(result[0][i].axleLength);
             norm.push(result[0][i].norm);
+            norm2.push(result[0][i].norm2);
+            norm3.push(result[0][i].norm3);
             truck.push(result[0][i].truck);
         }
         let data = {
@@ -103,12 +113,14 @@ router.get('/trainInfo', async function (req, res, next) {
             axleType: axleType,
             axleLength: axleLength,
             norm: norm,
+            norm2: norm2,
+            norm3: norm3,
             truck: truck
         };
         res.json({
             status: 'ok',
             data: data,
-            next_id: id+1
+            next_id: id[0][0].max_id+1
         })
     } catch (err) {
         console.warn(err);
@@ -141,8 +153,7 @@ router.post('/saveTrain', async function (req, res, next) {
                 n++;
             }
         }
-        await db.q(`insert into norm (train_id, axle, norm, norm2, norm3, axleLength, axleType, truck) values ?`, [norm]);
-        await db.q(`insert into acts (act_json) values (?)`, [JSON.stringify(req.body)]);
+        await db.q(`insert into axle_info (train_id, axle, norm, norm2, norm3, axleLength, axleType, truck) values ?`, [norm]);
         return res.json({
             status: 'ok',
             data: {}
